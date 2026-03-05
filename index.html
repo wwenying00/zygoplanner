@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <title>ZygoPlanner Web Interface</title>
 
+<!-- Three.js for 3D visualization -->
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
 
@@ -40,6 +41,7 @@ border:none;
 color:white;
 border-radius:6px;
 cursor:pointer;
+margin-top:10px;
 }
 
 #viewer{
@@ -57,6 +59,13 @@ align-items:center;
 
 .paper button{
 background:#2a8f4e;
+}
+
+.notice{
+background:#eef4ff;
+padding:10px;
+border-left:4px solid #1f6ed4;
+margin-top:10px;
 }
 
 </style>
@@ -77,42 +86,47 @@ background:#2a8f4e;
 
 <div class="paper">
 <span>ZygoPlanner: A three-stage graphics-based framework for optimal preoperative planning of zygomatic implant placement</span>
-<button onclick="window.open('https://www.sciencedirect.com/science/article/abs/pii/S1361841524003268')">
-Access
-</button>
+<button onclick="window.open('https://www.sciencedirect.com/science/article/abs/pii/S1361841524003268')">Access</button>
 </div>
 
 <div class="paper">
 <span>Clinical validation of an automated zygomatic implant planning system: An international multicenter study</span>
-<button onclick="window.open('https://www.sciencedirect.com/science/article/abs/pii/S0300571226002058?via%3Dihub')">
-Access
-</button>
+<button onclick="window.open('https://www.sciencedirect.com/science/article/abs/pii/S0300571226002058?via%3Dihub')">Access</button>
 </div>
 
 </div>
 
 <div class="section">
 
-<h2>Pre-step: Select Implant Length</h2>
+<h2>Pre-step: Select Maximum Zygomatic Implant Length</h2>
 
 <select id="implantLength">
 <option value="60">60 mm</option>
 <option value="52.5">52.5 mm</option>
 </select>
 
-<p id="intervalInfo"></p>
+<p id="intervalInfo">length_interval = [33,63]</p>
 
 </div>
 
 <div class="section">
 
-<h2>Step 1 – Upload CBCT</h2>
+<h2>Step 1 – Import CBCT (DICOM Folder)</h2>
 
-<input type="file" id="cbctUpload">
+<div class="notice">
+<strong>Important:</strong> Please select the entire CBCT folder containing multiple DICOM slices.
+Each slice should be a <b>.dcm</b> file. Do not upload a single file.
+</div>
 
-<br><br>
+<br>
 
-<label>CT Threshold:</label>
+<input type="file" id="dicomFolder" webkitdirectory directory multiple>
+
+<p id="fileCount"></p>
+
+<br>
+
+<label>CT Threshold (for skull segmentation):</label>
 <input type="range" min="0" max="2000" value="300" id="thresholdSlider">
 
 <span id="thresholdValue">300</span>
@@ -123,13 +137,16 @@ Access
 
 <h2>Step 2 – Separate Maxilla and Mandible</h2>
 
-<p>Navigate to the occlusal slice and erase the contact region.</p>
+<p>
+Scroll to the occlusal slice where the upper and lower teeth contact.
+Use the erase tool to remove the contact region so the maxilla and mandible become separated.
+</p>
 
 <canvas id="sliceCanvas" width="512" height="512" style="border:1px solid black"></canvas>
 
-<br><br>
+<br>
 
-<button>Erase Tool</button>
+<button>Activate Erase Tool</button>
 
 </div>
 
@@ -137,7 +154,7 @@ Access
 
 <h2>Step 3 – Select Implant Entry Points</h2>
 
-<p>Choose entry points on alveolar ridge (max 2 per side)</p>
+<p>Select entry points on the alveolar ridge (maximum two per side).</p>
 
 <div id="viewer"></div>
 
@@ -154,11 +171,13 @@ Access
 <h3>Zygoma Region Adjustment</h3>
 
 <label>Crop Radius</label>
-<input type="range" min="20" max="80" value="40">
+<input type="range" min="20" max="80" value="40" id="cropRadius">
 
-<br><br>
+<span id="cropValue">40</span>
 
-<button>Recalculate</button>
+<br>
+
+<button>Recalculate Zygoma Detection</button>
 <button>Next Step</button>
 
 </div>
@@ -203,6 +222,8 @@ renderer.render(scene,camera)
 
 animate()
 
+// implant length option
+
 document.getElementById("implantLength").onchange = function(){
 
 let val = this.value
@@ -219,13 +240,45 @@ document.getElementById("intervalInfo").innerText=text
 
 }
 
+// threshold slider
+
 document.getElementById("thresholdSlider").oninput=function(){
 document.getElementById("thresholdValue").innerText=this.value
 }
 
+// crop radius slider
+
+document.getElementById("cropRadius").oninput=function(){
+document.getElementById("cropValue").innerText=this.value
+}
+
+// DICOM folder input
+
+document.getElementById("dicomFolder").addEventListener("change",function(e){
+
+let files = e.target.files
+let count = files.length
+
+let dicomCount = 0
+
+for(let i=0;i<count;i++){
+
+if(files[i].name.toLowerCase().endsWith(".dcm")){
+ dicomCount++
+}
+
+}
+
+document.getElementById("fileCount").innerText =
+"Detected " + dicomCount + " DICOM slices in selected folder."
+
+})
+
+// planner placeholder
+
 function runPlanner(){
 
-alert("Planner will call backend main.py")
+alert("Planner will call Python backend main.py from auto-zygomatic-implantation repository.")
 
 document.getElementById("zygomaregion").style.display="block"
 

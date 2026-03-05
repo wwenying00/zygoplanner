@@ -1,69 +1,237 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Zygoplanner Demo</title>
-  <style>
-    body{font-family:Arial,Helvetica,sans-serif;margin:0;background:#f5f5f5}
-    header{background:#111;color:#fff;padding:20px;text-align:center}
-    main{max-width:900px;margin:40px auto;background:#fff;padding:30px;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.1)}
-    h1{margin-top:0}
-    .upload{border:2px dashed #ccc;border-radius:8px;padding:40px;text-align:center}
-    button{background:#2563eb;color:white;border:none;padding:12px 20px;border-radius:6px;font-size:16px;cursor:pointer}
-    button:hover{background:#1d4ed8}
-    .result{margin-top:20px;padding:15px;background:#f1f5f9;border-radius:6px}
-  </style>
+<meta charset="UTF-8">
+<title>ZygoPlanner Web Interface</title>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
+
+<style>
+
+body{
+font-family:Arial;
+margin:0;
+background:#f5f5f5;
+}
+
+header{
+background:#1f3c5c;
+color:white;
+padding:20px;
+}
+
+.container{
+padding:30px;
+}
+
+.section{
+background:white;
+padding:20px;
+margin-bottom:25px;
+border-radius:10px;
+box-shadow:0 2px 5px rgba(0,0,0,0.1);
+}
+
+button{
+padding:10px 20px;
+background:#1f6ed4;
+border:none;
+color:white;
+border-radius:6px;
+cursor:pointer;
+}
+
+#viewer{
+width:100%;
+height:500px;
+border:1px solid #ddd;
+}
+
+.paper{
+margin-top:10px;
+display:flex;
+justify-content:space-between;
+align-items:center;
+}
+
+.paper button{
+background:#2a8f4e;
+}
+
+</style>
 </head>
+
 <body>
-  <header>
-    <h1>Zygoplanner AI Planning Demo</h1>
-  </header>
-  <main>
-    <h2>Upload CBCT (Demo)</h2>
-    <div class="upload">
-      <input id="file" type="file" />
-      <p>Upload a CBCT file (demo only)</p>
-      <button onclick="runDemo()">Run AI Planning</button>
-    </div>
-    <div id="output" class="result" style="display:none"></div>
-  </main>
 
-  <script>
-    function runDemo(){
-      const file=document.getElementById('file').files[0];
-      const out=document.getElementById('output');
+<header>
+<h1>ZygoPlanner – Zygomatic Implant Planning System</h1>
+<p>Source code by Haitao Li | Web interface maintained by Wenying Wang</p>
+</header>
 
-      if(!file){
-        alert('Please upload a file first');
-        return;
-      }
+<div class="container">
 
-      out.style.display='block';
-      out.innerHTML='Processing with AI planner...';
+<div class="section">
 
-      setTimeout(()=>{
-        out.innerHTML=`\n          <b>Planning Complete</b><br/><br/>
-          Suggested Zygomatic Implant Path:<br/>
-          Entry Point: (32.1, 45.2, 18.4)<br/>
-          Target Point: (65.3, 72.1, 40.2)<br/>
-          Safety Distance to Orbit: 3.4 mm<br/>
-          Estimated BIC: 58%\n        `;
-      },1500);
-    }
+<h2>Related Publications</h2>
 
-    // Basic tests
-    function testRunDemoNoFile(){
-      try{
-        document.getElementById('file').value='';
-        runDemo();
-        console.log('Test passed: no crash when no file');
-      }catch(e){
-        console.error('Test failed',e);
-      }
-    }
+<div class="paper">
+<span>ZygoPlanner: A three-stage graphics-based framework for optimal preoperative planning of zygomatic implant placement</span>
+<button onclick="window.open('https://www.sciencedirect.com/science/article/abs/pii/S1361841524003268')">
+Access
+</button>
+</div>
 
-    window.onload=testRunDemoNoFile;
-  </script>
+<div class="paper">
+<span>Clinical validation of an automated zygomatic implant planning system: An international multicenter study</span>
+<button onclick="window.open('https://www.sciencedirect.com/science/article/abs/pii/S0300571226002058?via%3Dihub')">
+Access
+</button>
+</div>
+
+</div>
+
+<div class="section">
+
+<h2>Pre-step: Select Implant Length</h2>
+
+<select id="implantLength">
+<option value="60">60 mm</option>
+<option value="52.5">52.5 mm</option>
+</select>
+
+<p id="intervalInfo"></p>
+
+</div>
+
+<div class="section">
+
+<h2>Step 1 – Upload CBCT</h2>
+
+<input type="file" id="cbctUpload">
+
+<br><br>
+
+<label>CT Threshold:</label>
+<input type="range" min="0" max="2000" value="300" id="thresholdSlider">
+
+<span id="thresholdValue">300</span>
+
+</div>
+
+<div class="section">
+
+<h2>Step 2 – Separate Maxilla and Mandible</h2>
+
+<p>Navigate to the occlusal slice and erase the contact region.</p>
+
+<canvas id="sliceCanvas" width="512" height="512" style="border:1px solid black"></canvas>
+
+<br><br>
+
+<button>Erase Tool</button>
+
+</div>
+
+<div class="section">
+
+<h2>Step 3 – Select Implant Entry Points</h2>
+
+<p>Choose entry points on alveolar ridge (max 2 per side)</p>
+
+<div id="viewer"></div>
+
+</div>
+
+<div class="section">
+
+<h2>Step 4 – Run ZygoPlanner</h2>
+
+<button onclick="runPlanner()">Run Planning</button>
+
+<div id="zygomaregion" style="display:none">
+
+<h3>Zygoma Region Adjustment</h3>
+
+<label>Crop Radius</label>
+<input type="range" min="20" max="80" value="40">
+
+<br><br>
+
+<button>Recalculate</button>
+<button>Next Step</button>
+
+</div>
+
+</div>
+
+<div class="section">
+
+<h2>Step 5 – Export Results</h2>
+
+<button>Download Skull STL</button>
+<button>Download Implant STL</button>
+
+</div>
+
+</div>
+
+<script>
+
+let scene = new THREE.Scene()
+
+let camera = new THREE.PerspectiveCamera(
+75,
+window.innerWidth/window.innerHeight,
+0.1,
+1000
+)
+
+let renderer = new THREE.WebGLRenderer()
+renderer.setSize(window.innerWidth,500)
+
+document.getElementById("viewer").appendChild(renderer.domElement)
+
+let controls = new THREE.OrbitControls(camera,renderer.domElement)
+
+camera.position.z = 150
+
+function animate(){
+requestAnimationFrame(animate)
+renderer.render(scene,camera)
+}
+
+animate()
+
+document.getElementById("implantLength").onchange = function(){
+
+let val = this.value
+let text = ""
+
+if(val==60){
+text="length_interval = [33,63]"
+}
+else{
+text="length_interval = [35.5,55.5]"
+}
+
+document.getElementById("intervalInfo").innerText=text
+
+}
+
+document.getElementById("thresholdSlider").oninput=function(){
+document.getElementById("thresholdValue").innerText=this.value
+}
+
+function runPlanner(){
+
+alert("Planner will call backend main.py")
+
+document.getElementById("zygomaregion").style.display="block"
+
+}
+
+</script>
+
 </body>
 </html>
